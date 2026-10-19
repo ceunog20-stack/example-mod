@@ -1,17 +1,22 @@
 {
-	"geode": "$GEODE_VERSION",
+	"geode": "5.9.0",
 	"gd": {
 		"win": "2.2081",
 		"android": "2.2081",
 		"mac": "2.2081",
 		"ios": "2.2081"
 	},
-	"id": "$MOD_ID",
-	"name": "$MOD_NAME",
-	"version": "$MOD_VERSION",
-	"developer": "$MOD_DEVELOPER",
-	"description": "$MOD_DESCRIPTION",
-	"dependencies": {
-		"geode.node-ids": ">=v1.23.3"
+	"id": "yeongseop.death-layout",
+	"name": "Death Layout",
+	"version": "v1.0.0",
+	"developer": "신영섭",
+	"description": "죽으면 데코레이션을 숨기고 레이아웃만 보여줘요. 리스폰하면 원래대로 돌아와요.",
+	"settings": {
+		"hide-bg": {
+			"type": "bool",
+			"name": "배경도 숨기기",
+			"description": "레이아웃 보기에서 배경도 같이 숨겨요.",
+			"default": true
+		}
 	}
 }
