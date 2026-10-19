@@ -1,100 +1,71 @@
-/**
- * Include the Geode headers.
- */
 #include <Geode/Geode.hpp>
+#include <Geode/modify/PlayLayer.hpp>
+#include <vector>
 
-/**
- * Brings cocos2d and all Geode namespaces to the current scope.
- */
 using namespace geode::prelude;
 
-/**
- * `$modify` lets you extend and modify GD's classes.
- * To hook a function in Geode, simply $modify the class
- * and write a new function definition with the signature of
- * the function you want to hook.
- *
- * Here we use the overloaded `$modify` macro to set our own class name,
- * so that we can use it for button callbacks.
- *
- * Notice the header being included, you *must* include the header for
- * the class you are modifying, or you will get a compile error.
- *
- * Another way you could do this is like this:
- *
- * struct MyMenuLayer : Modify<MyMenuLayer, MenuLayer> {};
- */
-#include <Geode/modify/MenuLayer.hpp>
-class $modify(MyMenuLayer, MenuLayer) {
-	/**
-	 * Typically classes in GD are initialized using the `init` function, (though not always!),
-	 * so here we use it to add our own button to the bottom menu.
-	 *
-	 * Note that for all hooks, your signature has to *match exactly*,
-	 * `void init()` would not place a hook!
-	*/
-	bool init() {
-		/**
-		 * We call the original init function so that the
-		 * original class is properly initialized.
-		 */
-		if (!MenuLayer::init()) {
-			return false;
+class $modify(DeathLayoutPlayLayer, PlayLayer) {
+	struct Fields {
+		bool layoutOn = false;
+		std::vector<GameObject*> decos; // 죽을 때 한 번만 모아둠 (매 프레임 전체 순회 방지)
+	};
+
+	void hideDecos() {
+		for (auto obj : m_fields->decos) {
+			obj->setVisible(false);
 		}
-
-		/**
-		 * You can use methods from the `geode::log` namespace to log messages to the console,
-		 * being useful for debugging and such. See this page for more info about logging:
-		 * https://docs.geode-sdk.org/tutorials/logging
-		*/
-		log::debug("Hello from my MenuLayer::init hook! This layer has {} children.", this->getChildrenCount());
-
-		/**
-		 * See this page for more info about buttons
-		 * https://docs.geode-sdk.org/tutorials/buttons
-		*/
-		auto myButton = CCMenuItemSpriteExtra::create(
-			CCSprite::createWithSpriteFrameName("GJ_likeBtn_001.png"),
-			this,
-			/**
-			 * Here we use the name we set earlier for our modify class.
-			*/
-			menu_selector(MyMenuLayer::onMyButton)
-		);
-
-		/**
-		 * Here we access the `bottom-menu` node by its ID, and add our button to it.
-		 * Node IDs are a Geode feature, see this page for more info about it:
-		 * https://docs.geode-sdk.org/tutorials/nodetree
-		*/
-		auto menu = this->getChildByID("bottom-menu");
-		menu->addChild(myButton);
-
-		/**
-		 * The `_spr` string literal operator just prefixes the string with
-		 * your mod id followed by a slash. This is good practice for setting your own node ids.
-		*/
-		myButton->setID("my-button"_spr);
-
-		/**
-		 * We update the layout of the menu to ensure that our button is properly placed.
-		 * This is yet another Geode feature, see this page for more info about it:
-		 * https://docs.geode-sdk.org/tutorials/layouts
-		*/
-		menu->updateLayout();
-
-		/**
-		 * We return `true` to indicate that the class was properly initialized.
-		 */
-		return true;
+		if (m_background && Mod::get()->getSettingValue<bool>("hide-bg")) {
+			m_background->setVisible(false);
+		}
 	}
 
-	/**
-	 * This is the callback function for the button we created earlier.
-	 * The signature for button callbacks must always be the same,
-	 * return type `void` and taking a `CCObject*`.
-	*/
-	void onMyButton(CCObject*) {
-		FLAlertLayer::create("Geode", "Hello from my custom mod!", "OK")->show();
+	void setLayoutView(bool on) {
+		m_fields->layoutOn = on;
+
+		if (on) {
+			m_fields->decos.clear();
+			if (m_objects) {
+				for (auto obj : CCArrayExt<GameObject*>(m_objects)) {
+					// 장식 오브젝트만 (블록, 가시, 오브, 트리거는 유지)
+					if (obj && obj->m_objectType == GameObjectType::Decoration) {
+						m_fields->decos.push_back(obj);
+					}
+				}
+			}
+			this->hideDecos();
+		}
+		else {
+			for (auto obj : m_fields->decos) {
+				obj->setVisible(true);
+			}
+			m_fields->decos.clear();
+			if (m_background) {
+				m_background->setVisible(true);
+			}
+		}
+	}
+
+	// 죽는 순간 → 레이아웃 ON
+	void destroyPlayer(PlayerObject* player, GameObject* obj) {
+		PlayLayer::destroyPlayer(player, obj);
+		if (!m_fields->layoutOn) {
+			this->setLayoutView(true);
+		}
+	}
+
+	// 게임이 가시성을 다시 계산한 뒤에 장식을 다시 숨김
+	void updateVisibility(float dt) {
+		PlayLayer::updateVisibility(dt);
+		if (m_fields->layoutOn) {
+			this->hideDecos();
+		}
+	}
+
+	// 리스폰 → 원래대로 복구
+	void resetLevel() {
+		PlayLayer::resetLevel();
+		if (m_fields->layoutOn) {
+			this->setLayoutView(false);
+		}
 	}
 };
